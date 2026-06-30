@@ -2,12 +2,13 @@ import sys
 import argparse
 
 class ZetaInterpreter:
-    def __init__(self):
+    def __init__(self, trace=False):
         self.stack = []
         self.memory = {}
         self.pc = 0
         self.code = ""
         self.jumps = {}
+        self.trace = trace
 
     def parse_jumps(self):
         temp_stack = []
@@ -33,7 +34,6 @@ class ZetaInterpreter:
         self.stack.append(val)
 
     def execute(self, source_code):
-        # Filter only A-Z
         self.code = ''.join(c.upper() for c in source_code if c.isalpha())
         self.parse_jumps()
         self.pc = 0
@@ -41,50 +41,52 @@ class ZetaInterpreter:
         while self.pc < len(self.code):
             inst = self.code[self.pc]
 
-            if inst == 'A': # ADD
+            if self.trace:
+                print(f"[TRACE] PC:{self.pc} INST:{inst} STACK:{self.stack} MEM:{self.memory}", file=sys.stderr)
+
+            if inst == 'A':
                 b, a = self.pop(), self.pop()
                 self.push(a + b)
-            elif inst == 'B': # SUB
+            elif inst == 'B':
                 b, a = self.pop(), self.pop()
                 self.push(a - b)
-            elif inst == 'C': # MUL
+            elif inst == 'C':
                 b, a = self.pop(), self.pop()
                 self.push(a * b)
-            elif inst == 'D': # DIV
+            elif inst == 'D':
                 b, a = self.pop(), self.pop()
                 self.push(a // b if b != 0 else 0)
-            elif inst == 'E': # MOD
+            elif inst == 'E':
                 b, a = self.pop(), self.pop()
                 self.push(a % b if b != 0 else 0)
-            elif inst == 'F': # ZERO
+            elif inst == 'F':
                 self.push(0)
-            elif inst == 'G': # ONE
+            elif inst == 'G':
                 self.push(1)
-            elif inst == 'H': # DUP
+            elif inst == 'H':
                 self.push(self.peek())
-            elif inst == 'I': # SWP
+            elif inst == 'I':
                 b, a = self.pop(), self.pop()
                 self.push(b)
                 self.push(a)
-            elif inst == 'J': # POP
+            elif inst == 'J':
                 self.pop()
-            elif inst == 'K': # INC
+            elif inst == 'K':
                 a = self.pop()
                 self.push(a + 1)
-            elif inst == 'L': # DEC
+            elif inst == 'L':
                 a = self.pop()
                 self.push(a - 1)
-            elif inst == 'M': # OUTA
+            elif inst == 'M':
                 sys.stdout.write(chr(self.pop() % 256))
                 sys.stdout.flush()
-            elif inst == 'N': # OUTN
+            elif inst == 'N':
                 sys.stdout.write(str(self.pop()))
                 sys.stdout.flush()
-            elif inst == 'O': # INPA
+            elif inst == 'O':
                 c = sys.stdin.read(1)
                 self.push(ord(c) if c else 0)
-            elif inst == 'P': # INPN
-                # Read integer from stdin
+            elif inst == 'P':
                 val = ""
                 while True:
                     c = sys.stdin.read(1)
@@ -95,31 +97,31 @@ class ZetaInterpreter:
                     self.push(int(val))
                 except ValueError:
                     self.push(0)
-            elif inst == 'Q': # JZ
+            elif inst == 'Q':
                 if self.peek() == 0:
                     self.pc = self.jumps[self.pc]
-            elif inst == 'R': # EQU
+            elif inst == 'R':
                 b, a = self.pop(), self.pop()
                 self.push(1 if a == b else 0)
-            elif inst == 'S': # LSS
+            elif inst == 'S':
                 b, a = self.pop(), self.pop()
                 self.push(1 if a < b else 0)
-            elif inst == 'T': # GRT
+            elif inst == 'T':
                 b, a = self.pop(), self.pop()
                 self.push(1 if a > b else 0)
-            elif inst == 'U': # STR (Store)
+            elif inst == 'U':
                 addr, val = self.pop(), self.pop()
                 self.memory[addr] = val
-            elif inst == 'V': # LDR (Load)
+            elif inst == 'V':
                 addr = self.pop()
                 self.push(self.memory.get(addr, 0))
-            elif inst == 'W': # PSH26
+            elif inst == 'W':
                 self.push(26)
-            elif inst == 'X': # PSH10
+            elif inst == 'X':
                 self.push(10)
-            elif inst == 'Y': # NOP
+            elif inst == 'Y':
                 pass
-            elif inst == 'Z': # JNZ
+            elif inst == 'Z':
                 if self.peek() != 0:
                     self.pc = self.jumps[self.pc]
 
@@ -128,10 +130,11 @@ class ZetaInterpreter:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ZETA Base-26 Language Interpreter")
     parser.add_argument("file", help="ZETA source file")
+    parser.add_argument("--trace", action="store_true", help="Enable execution trace")
     args = parser.parse_args()
 
     with open(args.file, "r") as f:
         code = f.read()
 
-    interpreter = ZetaInterpreter()
+    interpreter = ZetaInterpreter(trace=args.trace)
     interpreter.execute(code)
