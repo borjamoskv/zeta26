@@ -1,5 +1,3 @@
-
-
 def encode_number(n):
     if n == 0:
         return "F"

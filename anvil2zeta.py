@@ -4,108 +4,90 @@ import json
 import subprocess
 
 
-def compile_anvil_ast_to_zasm(ast_data):
-    zasm_lines = []
+class ZasmCompiler:
+    """Atomic Compiler Core for mapping Anvil AST to ZASM."""
 
-    # We map parameters and local variables to fixed memory addresses
-    # Address 0: Reserved or Return Value
-    # Address 1..N: Variables
-    var_map = {}
-    next_addr = 1
+    def __init__(self):
+        self.zasm_lines = []
+        self.var_map = {}
+        self.next_addr = 1
 
-    # Helper to get/allocate address for variable
-    def get_var_addr(name):
-        nonlocal next_addr
-        if name not in var_map:
-            var_map[name] = next_addr
-            next_addr += 1
-        return var_map[name]
+    def get_var_addr(self, name: str) -> int:
+        if name not in self.var_map:
+            self.var_map[name] = self.next_addr
+            self.next_addr += 1
+        return self.var_map[name]
 
-    # Locate contracts
-    for item in ast_data.get("items", []):
-        contract = item.get("Contract")
-        if not contract:
-            continue
+    def emit(self, instruction: str):
+        self.zasm_lines.append(instruction)
 
-        zasm_lines.append(f";; --- Contract: {contract['name']} ---")
+    def compile(self, ast_data: dict) -> str:
+        for item in ast_data.get("items", []):
+            if "Contract" in item:
+                self.compile_contract(item["Contract"])
+        return "\n".join(self.zasm_lines)
 
-        # We only transpile the first function for simplicity in our VM mapping
+    def compile_contract(self, contract: dict):
+        self.emit(f";; --- Contract: {contract.get('name', 'Unknown')} ---")
         for func in contract.get("functions", []):
-            zasm_lines.append(f";; Function: {func['name']}")
+            self.compile_function(func)
+            break  # Currently only transpiling the first function
 
-            # Param mapping
-            # Parameters are expected to be on the stack, with the last parameter on top.
-            # Example: [param1, param2] -> param2 is top.
-            # So we pop them in reverse order.
-            params = func.get("params", [])
-            for param in reversed(params):
-                name = param["name"]
-                addr = get_var_addr(name)
-                zasm_lines.append(f"PUSH {addr}  ; Address for {name}")
-                zasm_lines.append("STR     ; Pop param and store")
+    def compile_function(self, func: dict):
+        self.emit(f";; Function: {func.get('name', 'Unknown')}")
+        self.compile_params(func.get("params", []))
+        self.compile_body(func.get("body", {}))
+        self.emit(";; --- End Function ---")
 
-            # Compile statements in body
-            body = func.get("body", {})
-            for stmt in body.get("stmts", []):
-                if "Assign" in stmt:
-                    assign = stmt["Assign"]
-                    target = assign["target"]["Ident"]
-                    op = assign["op"]
-                    val_node = assign["value"]
+    def compile_params(self, params: list):
+        for param in reversed(params):
+            name = param["name"]
+            addr = self.get_var_addr(name)
+            self.emit(f"PUSH {addr}  ; Address for {name}")
+            self.emit("STR     ; Pop param and store")
 
-                    target_addr = get_var_addr(target)
+    def compile_body(self, body: dict):
+        for stmt in body.get("stmts", []):
+            if "Assign" in stmt:
+                self.compile_assign(stmt["Assign"])
+            elif "Return" in stmt:
+                self.compile_return(stmt["Return"])
 
-                    # Load current target value if it's a compound assignment (+=, -=)
-                    if op in ["SubAssign", "AddAssign"]:
-                        zasm_lines.append(
-                            f"PUSH {target_addr} ; Load {target} for compound assignment"
-                        )
-                        zasm_lines.append("LDR")
+    def compile_assign(self, assign: dict):
+        target = assign["target"]["Ident"]
+        target_addr = self.get_var_addr(target)
+        op = assign["op"]
 
-                    # Evaluate value
-                    if "Ident" in val_node:
-                        val_name = val_node["Ident"]
-                        val_addr = get_var_addr(val_name)
-                        zasm_lines.append(f"PUSH {val_addr} ; Load {val_name}")
-                        zasm_lines.append("LDR")
-                    elif "Literal" in val_node:
-                        lit_val = val_node["Literal"]
-                        zasm_lines.append(f"PUSH {lit_val}")
+        if op in ["SubAssign", "AddAssign"]:
+            self.emit(f"PUSH {target_addr} ; Load {target} for compound assignment")
+            self.emit("LDR")
 
-                    # Apply operator
-                    if op == "SubAssign":
-                        zasm_lines.append("SUB")
-                    elif op == "AddAssign":
-                        zasm_lines.append("ADD")
+        self.compile_expr(assign["value"])
 
-                    # Store back to target
-                    zasm_lines.append(f"PUSH {target_addr} ; Store back to {target}")
-                    zasm_lines.append("STR")
+        if op == "SubAssign":
+            self.emit("SUB")
+        elif op == "AddAssign":
+            self.emit("ADD")
 
-                elif "Return" in stmt:
-                    ret = stmt["Return"]
-                    if "Ident" in ret:
-                        ret_name = ret["Ident"]
-                        ret_addr = get_var_addr(ret_name)
-                        zasm_lines.append(
-                            f"PUSH {ret_addr} ; Load return value {ret_name}"
-                        )
-                        zasm_lines.append("LDR")
-                    elif "Literal" in ret:
-                        lit_val = ret["Literal"]
-                        zasm_lines.append(f"PUSH {lit_val}")
+        self.emit(f"PUSH {target_addr} ; Store back to {target}")
+        self.emit("STR")
 
-                    zasm_lines.append("OUTN    ; Print return value")
-                    zasm_lines.append("PUSH 10 ; Print newline")
-                    zasm_lines.append("OUTA")
+    def compile_expr(self, expr: dict):
+        if "Ident" in expr:
+            val_name = expr["Ident"]
+            self.emit(f"PUSH {self.get_var_addr(val_name)} ; Load {val_name}")
+            self.emit("LDR")
+        elif "Literal" in expr:
+            self.emit(f"PUSH {expr['Literal']}")
 
-            zasm_lines.append(";; --- End Function ---")
-            break  # Compiles one function
-
-    return "\n".join(zasm_lines)
+    def compile_return(self, ret: dict):
+        self.compile_expr(ret)
+        self.emit("OUTN    ; Print return value")
+        self.emit("PUSH 10 ; Print newline")
+        self.emit("OUTA")
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) < 2:
         print("Usage: python3 anvil2zeta.py <file.anv>")
         sys.exit(1)
@@ -116,7 +98,6 @@ if __name__ == "__main__":
 
     # Run anvil ast using cargo
     anvil_dir = "/Users/borjafernandezangulo/10_PROJECTS/anvil-lang"
-    # Find absolute path of input
     abs_input = os.path.abspath(input_file)
 
     print("[C5-REAL] Dumping Anvil AST via Cargo...")
@@ -127,7 +108,6 @@ if __name__ == "__main__":
         print(f"[ERROR] Anvil AST generation failed:\n{res.stderr}", file=sys.stderr)
         sys.exit(1)
 
-    # Find JSON start in output (filtering out the header)
     output = res.stdout
     json_start = output.find("{")
     if json_start == -1:
@@ -136,9 +116,14 @@ if __name__ == "__main__":
 
     json_data = json.loads(output[json_start:])
 
-    zasm = compile_anvil_ast_to_zasm(json_data)
+    compiler = ZasmCompiler()
+    zasm = compiler.compile(json_data)
 
     with open(zasm_file, "w") as f:
         f.write(zasm)
 
     print(f"[C5-REAL] Compiled Anvil verified code to ZASM: {zasm_file}")
+
+
+if __name__ == "__main__":
+    main()
