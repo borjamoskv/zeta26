@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZETA (Z26) — Interactive Cybernetic Playground</title>
+  <link rel="stylesheet" href="playground.css">
+  <!-- WABT.js to compile WAT to WASM directly in the browser -->
+  <script src="https://unpkg.com/wabt@1.0.32/index.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>ZETA (Z26)</h1>
+    <div class="controls-group">
+      <select id="example-select">
+        <option value="countdown">Countdown (ZASM)</option>
+        <option value="fibonacci">Fibonacci Sequence (ZETA)</option>
+        <option value="moskv">"MOSKV-1 APEX" Print (ZETA)</option>
+      </select>
+      <button id="btn-load">Load</button>
+    </div>
+    <span class="meta-tag">C5-REAL Kernel</span>
+  </header>
+
+  <main>
+    <!-- Left: Editor & Console -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>SOURCE CODE (ZETA / ZASM)</span>
+        <div class="controls-group">
+          <button id="btn-assemble">Assemble ZASM</button>
+          <button id="btn-run" class="primary">Run VM</button>
+          <button id="btn-wasm">Compile to WASM</button>
+        </div>
+      </div>
+      <div class="editor-container">
+        <textarea id="editor" spellcheck="false">PUSH 10
+JZ
+DUP
+OUTN
+PUSH 10
+OUTA
+DEC
+JNZ</textarea>
+      </div>
+      <div class="output-area">
+        <div class="panel-header">SYSTEM CONSOLE / OUTPUT</div>
+        <div class="console" id="console">Initializing ZETA Engine...
+System Idle. Ready for bytecode dispatch.</div>
+      </div>
+    </div>
+
+    <!-- Right: Visualizer -->
+    <div class="visualizer-container">
+      <!-- Stack -->
+      <div class="visualizer-subpanel">
+        <div class="panel-header">
+          <span>STACK VISUALIZER</span>
+          <div class="controls-group">
+            <button id="btn-step">Step</button>
+            <button id="btn-stop">Stop</button>
+          </div>
+        </div>
+        <div class="visualizer-content" style="display: flex; align-items: flex-end; justify-content: center;">
+          <div class="stack-list" id="stack-list">
+            <!-- Stack elements here -->
+            <div class="stack-item">[Empty Stack]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memory -->
+      <div class="visualizer-subpanel">
+        <div class="panel-header">LINEAR MEMORY GRID</div>
+        <div class="visualizer-content">
+          <div class="memory-grid" id="memory-grid">
+            <!-- Memory cells here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="playground.js"></script>
+</body>
+</html>
