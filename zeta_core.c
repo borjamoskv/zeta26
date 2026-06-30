@@ -64,38 +64,46 @@ int main(int argc, char **argv) {
     long a, b, addr, val;
     int c;
 
-    while (pc < len) {
-        switch (code[pc]) {
-            case 'A': b = stack[--sp]; a = stack[--sp]; stack[sp++] = a + b; break;
-            case 'B': b = stack[--sp]; a = stack[--sp]; stack[sp++] = a - b; break;
-            case 'C': b = stack[--sp]; a = stack[--sp]; stack[sp++] = a * b; break;
-            case 'D': b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a / b) : 0; break;
-            case 'E': b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a % b) : 0; break;
-            case 'F': stack[sp++] = 0; break;
-            case 'G': stack[sp++] = 1; break;
-            case 'H': stack[sp] = stack[sp-1]; sp++; break;
-            case 'I': b = stack[--sp]; a = stack[--sp]; stack[sp++] = b; stack[sp++] = a; break;
-            case 'J': sp--; break;
-            case 'K': stack[sp-1]++; break;
-            case 'L': stack[sp-1]--; break;
-            case 'M': putchar(stack[--sp] & 0xFF); fflush(stdout); break;
-            case 'N': printf("%ld", stack[--sp]); fflush(stdout); break;
-            case 'O': c = getchar(); stack[sp++] = (c != EOF) ? c : 0; break;
-            case 'P': if (scanf("%ld", &a) == 1) stack[sp++] = a; else stack[sp++] = 0; break;
-            case 'Q': if (sp == 0 || stack[sp-1] == 0) pc = jumps[pc]; break;
-            case 'R': b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a == b) ? 1 : 0; break;
-            case 'S': b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a < b) ? 1 : 0; break;
-            case 'T': b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a > b) ? 1 : 0; break;
-            case 'U': addr = stack[--sp]; val = stack[--sp]; mem[addr] = val; break;
-            case 'V': addr = stack[--sp]; stack[sp++] = mem[addr]; break;
-            case 'W': stack[sp++] = 26; break;
-            case 'X': stack[sp++] = 10; break;
-            case 'Y': break;
-            case 'Z': if (sp > 0 && stack[sp-1] != 0) pc = jumps[pc]; break;
-        }
-        pc++;
-    }
+    // DIRECT THREADED CODE (COMPUTED GOTOS)
+    static void* dispatch_table[26] = {
+        &&op_A, &&op_B, &&op_C, &&op_D, &&op_E, &&op_F, &&op_G, &&op_H, &&op_I, &&op_J,
+        &&op_K, &&op_L, &&op_M, &&op_N, &&op_O, &&op_P, &&op_Q, &&op_R, &&op_S, &&op_T,
+        &&op_U, &&op_V, &&op_W, &&op_X, &&op_Y, &&op_Z
+    };
 
+    if (len == 0) goto end;
+    #define DISPATCH() do { if (++pc < len) goto *dispatch_table[code[pc] - 'A']; else goto end; } while(0)
+
+    goto *dispatch_table[code[pc] - 'A'];
+
+op_A: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a + b; DISPATCH();
+op_B: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a - b; DISPATCH();
+op_C: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a * b; DISPATCH();
+op_D: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a / b) : 0; DISPATCH();
+op_E: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a % b) : 0; DISPATCH();
+op_F: stack[sp++] = 0; DISPATCH();
+op_G: stack[sp++] = 1; DISPATCH();
+op_H: stack[sp] = stack[sp-1]; sp++; DISPATCH();
+op_I: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b; stack[sp++] = a; DISPATCH();
+op_J: sp--; DISPATCH();
+op_K: stack[sp-1]++; DISPATCH();
+op_L: stack[sp-1]--; DISPATCH();
+op_M: putchar(stack[--sp] & 0xFF); fflush(stdout); DISPATCH();
+op_N: printf("%ld", stack[--sp]); fflush(stdout); DISPATCH();
+op_O: c = getchar(); stack[sp++] = (c != EOF) ? c : 0; DISPATCH();
+op_P: if (scanf("%ld", &a) == 1) stack[sp++] = a; else stack[sp++] = 0; DISPATCH();
+op_Q: if (sp == 0 || stack[sp-1] == 0) pc = jumps[pc]; DISPATCH();
+op_R: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a == b) ? 1 : 0; DISPATCH();
+op_S: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a < b) ? 1 : 0; DISPATCH();
+op_T: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a > b) ? 1 : 0; DISPATCH();
+op_U: addr = stack[--sp]; val = stack[--sp]; mem[addr] = val; DISPATCH();
+op_V: addr = stack[--sp]; stack[sp++] = mem[addr]; DISPATCH();
+op_W: stack[sp++] = 26; DISPATCH();
+op_X: stack[sp++] = 10; DISPATCH();
+op_Y: DISPATCH();
+op_Z: if (sp > 0 && stack[sp-1] != 0) pc = jumps[pc]; DISPATCH();
+
+end:
     free(stack);
     free(mem);
     free(jumps);

@@ -31,6 +31,13 @@ def optimize_bf_to_zeta(bf_code):
     while i < n:
         char = bf_code[i]
         
+        # Dead-code / Clear-loop elimination ([-])
+        if char == '[' and i + 2 < n and bf_code[i+1] in ['-', '+'] and bf_code[i+2] == ']':
+            # mem[DP] = 0 (HFIU: DUP, ZERO, SWP, STR)
+            zeta_code += "HFIU"
+            i += 3
+            continue
+            
         # Optimize consecutive runs
         if char in ['+', '-', '>', '<']:
             count = 1
@@ -76,4 +83,4 @@ if __name__ == '__main__':
     with open(zeta_file, 'w') as f:
         f.write(zeta)
         
-    print(f"[C5-REAL] Brainfuck RLE-Transmuted to ZETA: {zeta_file} (Entropy Purged - length: {len(zeta)})")
+    print(f"[C5-REAL] Brainfuck RLE+JIT-Transmuted to ZETA: {zeta_file} (Entropy Purged - length: {len(zeta)})")
