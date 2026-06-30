@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define STACK_SIZE 65536
+#define MEM_SIZE 65536
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "Usage: ./zeta_core <file.zta>\n");
@@ -56,13 +59,18 @@ int main(int argc, char **argv) {
     }
     free(temp_stack);
 
-    long *stack = malloc(65536 * sizeof(long));
+    long *stack = malloc(STACK_SIZE * sizeof(long));
     long sp = 0;
-    long *mem = calloc(65536, sizeof(long));
+    long *mem = calloc(MEM_SIZE, sizeof(long));
 
     long pc = 0;
     long a, b, addr, val;
     int c;
+
+#define C5_PANIC(msg) ({ fprintf(stderr, "C5-PANIC: %s at PC=%ld\n", msg, pc); exit(1); 0; })
+#define PUSH(x) do { if (sp >= STACK_SIZE) C5_PANIC("Stack Overflow"); stack[sp++] = (x); } while(0)
+#define POP() (sp == 0 ? C5_PANIC("Stack Underflow") : stack[--sp])
+#define CHECK_MEM(addr) do { if ((addr) < 0 || (addr) >= MEM_SIZE) C5_PANIC("Memory Violation"); } while(0)
 
     // DIRECT THREADED CODE (COMPUTED GOTOS)
     static void* dispatch_table[26] = {
@@ -76,30 +84,30 @@ int main(int argc, char **argv) {
 
     goto *dispatch_table[code[pc] - 'A'];
 
-op_A: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a + b; DISPATCH();
-op_B: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a - b; DISPATCH();
-op_C: b = stack[--sp]; a = stack[--sp]; stack[sp++] = a * b; DISPATCH();
-op_D: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a / b) : 0; DISPATCH();
-op_E: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b ? (a % b) : 0; DISPATCH();
-op_F: stack[sp++] = 0; DISPATCH();
-op_G: stack[sp++] = 1; DISPATCH();
-op_H: stack[sp] = stack[sp-1]; sp++; DISPATCH();
-op_I: b = stack[--sp]; a = stack[--sp]; stack[sp++] = b; stack[sp++] = a; DISPATCH();
-op_J: sp--; DISPATCH();
-op_K: stack[sp-1]++; DISPATCH();
-op_L: stack[sp-1]--; DISPATCH();
-op_M: putchar(stack[--sp] & 0xFF); fflush(stdout); DISPATCH();
-op_N: printf("%ld", stack[--sp]); fflush(stdout); DISPATCH();
-op_O: c = getchar(); stack[sp++] = (c != EOF) ? c : 0; DISPATCH();
-op_P: if (scanf("%ld", &a) == 1) stack[sp++] = a; else stack[sp++] = 0; DISPATCH();
+op_A: b = POP(); a = POP(); PUSH(a + b); DISPATCH();
+op_B: b = POP(); a = POP(); PUSH(a - b); DISPATCH();
+op_C: b = POP(); a = POP(); PUSH(a * b); DISPATCH();
+op_D: b = POP(); a = POP(); PUSH(b ? (a / b) : 0); DISPATCH();
+op_E: b = POP(); a = POP(); PUSH(b ? (a % b) : 0); DISPATCH();
+op_F: PUSH(0); DISPATCH();
+op_G: PUSH(1); DISPATCH();
+op_H: if (sp == 0) C5_PANIC("Stack Underflow (Dup)"); PUSH(stack[sp-1]); DISPATCH();
+op_I: b = POP(); a = POP(); PUSH(b); PUSH(a); DISPATCH();
+op_J: POP(); DISPATCH();
+op_K: if (sp == 0) C5_PANIC("Stack Underflow"); stack[sp-1]++; DISPATCH();
+op_L: if (sp == 0) C5_PANIC("Stack Underflow"); stack[sp-1]--; DISPATCH();
+op_M: a = POP(); putchar(a & 0xFF); fflush(stdout); DISPATCH();
+op_N: a = POP(); printf("%ld", a); fflush(stdout); DISPATCH();
+op_O: c = getchar(); PUSH((c != EOF) ? c : 0); DISPATCH();
+op_P: if (scanf("%ld", &a) == 1) PUSH(a); else PUSH(0); DISPATCH();
 op_Q: if (sp == 0 || stack[sp-1] == 0) pc = jumps[pc]; DISPATCH();
-op_R: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a == b) ? 1 : 0; DISPATCH();
-op_S: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a < b) ? 1 : 0; DISPATCH();
-op_T: b = stack[--sp]; a = stack[--sp]; stack[sp++] = (a > b) ? 1 : 0; DISPATCH();
-op_U: addr = stack[--sp]; val = stack[--sp]; mem[addr] = val; DISPATCH();
-op_V: addr = stack[--sp]; stack[sp++] = mem[addr]; DISPATCH();
-op_W: stack[sp++] = 26; DISPATCH();
-op_X: stack[sp++] = 10; DISPATCH();
+op_R: b = POP(); a = POP(); PUSH((a == b) ? 1 : 0); DISPATCH();
+op_S: b = POP(); a = POP(); PUSH((a < b) ? 1 : 0); DISPATCH();
+op_T: b = POP(); a = POP(); PUSH((a > b) ? 1 : 0); DISPATCH();
+op_U: addr = POP(); val = POP(); CHECK_MEM(addr); mem[addr] = val; DISPATCH();
+op_V: addr = POP(); CHECK_MEM(addr); PUSH(mem[addr]); DISPATCH();
+op_W: PUSH(26); DISPATCH();
+op_X: PUSH(10); DISPATCH();
 op_Y: DISPATCH();
 op_Z: if (sp > 0 && stack[sp-1] != 0) pc = jumps[pc]; DISPATCH();
 
