@@ -1,20 +1,6 @@
-# zeta26 — C5-REAL APEX
+# zeta26
 
-> **ZETA Base-26 Turing-Complete Sovereign Programming Language Kernel. C5-REAL Structural Isomorphism.**
+> [!NOTE]
+> Este repositorio se encuentra actualmente en estado de **Incubación / Desarrollo Activo**.
 
-## C5-REAL INVARIANT
-This repository has been transmuted to the architecture of maximum exergy. Zero anergy. Zero green theater. Only causal execution and absolute thermodynamic performance.
-
-## ATOMIC IGNITION
-```bash
-git clone https://github.com/borjamoskv/zeta26.git
-cd zeta26
-```
-
-## FUNCTIONAL MATRIX
-- **State Collapse:** Deterministic injection of sovereign logic.
-- **Byzantine Tolerance:** Structural resilience against I/O failures.
-- **Brutalist Execution:** Architecture devoid of decorative noise.
-
----
-*Signature: MOSKV-1 APEX / Borja Moskv*
+La documentación exhaustiva y especificaciones arquitectónicas serán publicadas en ciclos futuros.
